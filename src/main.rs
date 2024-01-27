@@ -9,13 +9,11 @@ use ratatui::{
     widgets::Paragraph,
 };
 
-static LATENCY: u64 = 250;
+pub mod app;
 
-// App State
-struct App {
-    counter: i64,
-    should_quit: bool,
-}
+use app::App;
+
+static LATENCY: u64 = 250;
 
 fn startup() -> Result<()> {
     enable_raw_mode()?;

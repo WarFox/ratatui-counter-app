@@ -20,7 +20,9 @@ impl App {
     }
 
     pub fn increment_counter(&mut self) {
-        self.counter = self.counter + 1;
+        if let Some(res) = self.counter.checked_add(1) {
+            self.counter = res;
+        }
     }
 
     pub fn decrement_counter(&mut self) {

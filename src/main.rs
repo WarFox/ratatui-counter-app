@@ -30,7 +30,7 @@ fn shutdown() -> Result<()> {
 // App ui render function
 fn ui(app: &App, f: &mut Frame) {
     f.render_widget(
-        Paragraph::new(format!("Counter: {}", app.counter)),
+        Paragraph::new(format!("Counter: {}", app.counter())),
         f.size(),
     );
 }
@@ -41,9 +41,9 @@ fn update(app: &mut App) -> Result<()> {
         if let Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
-                    Char('j') => app.counter += 1,
-                    Char('k') => app.counter -= 1,
-                    Char('q') => app.should_quit = true,
+                    Char('j') => app.increment_counter(),
+                    Char('k') => app.decrement_counter(),
+                    Char('q') => app.quit(),
                     _ => {}
                 }
             }
@@ -57,10 +57,7 @@ fn run() -> Result<()> {
     let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
 
     // application state
-    let mut app = App {
-        counter: 0,
-        should_quit: false,
-    };
+    let mut app = App::default();
 
     loop {
         // application render
@@ -72,7 +69,7 @@ fn run() -> Result<()> {
         update(&mut app)?;
 
         // application exit
-        if app.should_quit {
+        if app.should_quit() {
             break;
         }
     }

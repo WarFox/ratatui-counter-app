@@ -1,40 +1,105 @@
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+
+use ratatui::{
+    prelude::*,
+    symbols::border,
+    widgets::{block::*, *},
+};
+
+use crate::tui;
+use std::io;
+
 // App State
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct App {
     counter: u8,
-    should_quit: bool,
+    exit: bool,
 }
 
 impl App {
-    /// Constructs a new instance of [`App`].
-    pub fn counter(&self) -> u8 {
-        return self.counter;
+    /// runs the application's main loop until the user quits
+    pub fn run(&mut self, terminal: &mut tui::Tui) -> io::Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| self.render_frame(frame))?;
+            self.handle_events()?;
+        }
+        Ok(())
     }
 
-    pub fn should_quit(&self) -> bool {
-        return self.should_quit;
+    fn render_frame(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.size());
     }
 
-    /// Handles the tick event of the terminal.
-    pub fn tick(&self) {}
-
-    /// Set should_quit to true to quit the application.
-    pub fn quit(&mut self) {
-        self.should_quit = true;
+    /// updates the application's state based on user input
+    fn handle_events(&mut self) -> io::Result<()> {
+        match event::read()? {
+            // it's important to check that the event is a key press event as
+            // crossterm also emits key release and repeat events on Windows.
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.handle_key_event(key_event)
+            }
+            _ => {}
+        };
+        Ok(())
     }
 
-    pub fn increment_counter(&mut self) {
-        if let Some(res) = self.counter.checked_add(1) {
-            self.counter = res;
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('q') => self.exit(),
+            KeyCode::Left => self.decrement_counter(),
+            KeyCode::Right => self.increment_counter(),
+            _ => {}
         }
     }
 
-    pub fn decrement_counter(&mut self) {
-        if let Some(res) = self.counter.checked_sub(1) {
-            self.counter = res;
+    fn exit(&mut self) {
+        self.exit = true;
+    }
+
+    fn increment_counter(&mut self) {
+        self.counter += 1;
+    }
+
+    fn decrement_counter(&mut self) {
+        if self.counter > 0 {
+            self.counter -= 1;
         }
     }
 }
+
+impl Widget for &App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let title = Title::from(" Counter App Tutorial ".bold());
+        let instructions = Title::from(Line::from(vec![
+            " Decrement ".into(),
+            "<Left>".blue().bold(),
+            " Increment ".into(),
+            "<Right>".blue().bold(),
+            " Quit ".into(),
+            "<Q> ".blue().bold(),
+        ]));
+        let block = Block::default()
+            .title(title.alignment(Alignment::Center))
+            .title(
+                instructions
+                    .alignment(Alignment::Center)
+                    .position(Position::Bottom),
+            )
+            .borders(Borders::ALL)
+            .border_set(border::THICK);
+
+        let counter_text = Text::from(vec![Line::from(vec![
+            "Value: ".into(),
+            self.counter.to_string().yellow(),
+        ])]);
+
+        Paragraph::new(counter_text)
+            .centered()
+            .block(block)
+            .render(area, buf);
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -43,8 +108,8 @@ mod tests {
     #[test]
     fn test_app_new() {
         let app = App::default();
-        assert_eq!(app.counter(), 0);
-        assert_eq!(app.should_quit(), false);
+        assert_eq!(app.counter, 0);
+        assert_eq!(app.exit, false);
     }
 
     #[test]

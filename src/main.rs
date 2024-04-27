@@ -1,13 +1,14 @@
-use std::io;
-
-mod tui;
 mod app;
+mod errors;
+mod tui;
 
 use app::App;
+use color_eyre::Result;
 
-fn main() -> io::Result<()> {
+fn main() -> Result<()> {
+    errors::install_hooks()?;
     let mut terminal = tui::init()?;
-    let app_result = App::default().run(&mut terminal);
+    App::default().run(&mut terminal)?;
     tui::restore()?;
-    app_result
+    Ok(())
 }

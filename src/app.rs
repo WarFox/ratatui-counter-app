@@ -7,7 +7,9 @@ use ratatui::{
 };
 
 use crate::tui;
-use std::io;
+
+// use color_eyre::Result instead of io::Result
+use color_eyre::{eyre::WrapErr, Result};
 
 // App State
 #[derive(Debug, Default)]
@@ -18,10 +20,10 @@ pub struct App {
 
 impl App {
     /// runs the application's main loop until the user quits
-    pub fn run(&mut self, terminal: &mut tui::Tui) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut tui::Tui) -> Result<()> {
         while !self.exit {
             terminal.draw(|frame| self.render_frame(frame))?;
-            self.handle_events()?;
+            self.handle_events().wrap_err("Failed to handle events")?;
         }
         Ok(())
     }
@@ -31,7 +33,7 @@ impl App {
     }
 
     /// updates the application's state based on user input
-    fn handle_events(&mut self) -> io::Result<()> {
+    fn handle_events(&mut self) -> Result<()> {
         match event::read()? {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
@@ -61,9 +63,7 @@ impl App {
     }
 
     fn decrement_counter(&mut self) {
-        if self.counter > 0 {
-            self.counter -= 1;
-        }
+        self.counter -= 1;
     }
 }
 
@@ -99,7 +99,6 @@ impl Widget for &App {
             .render(area, buf);
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -157,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_key_event() -> io::Result<()> {
+    fn handle_key_event() -> Result<()> {
         let mut app = App::default();
         app.handle_key_event(KeyCode::Right.into());
         assert_eq!(app.counter, 1);

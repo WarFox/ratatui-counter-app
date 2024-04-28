@@ -1,0 +1,5 @@
+#+title: Ratatui Counter App
+
+Learning Rust, learning Ratatui
+
+This repo follows the tutorial in https://ratatui.rs/tutorials/counter-app/

@@ -9,7 +9,10 @@ use ratatui::{
 use crate::tui;
 
 // use color_eyre::Result instead of io::Result
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 
 // App State
 #[derive(Debug, Default)]
@@ -37,33 +40,38 @@ impl App {
         match event::read()? {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
-            }
-            _ => {}
-        };
-        Ok(())
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
+                .handle_key_event(key_event)
+                .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}")),
+            _ => Ok(()),
+        }
     }
 
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
+    fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
-            KeyCode::Left => self.decrement_counter(),
-            KeyCode::Right => self.increment_counter(),
+            KeyCode::Left => self.decrement_counter()?,
+            KeyCode::Right => self.increment_counter()?,
             _ => {}
         }
+        Ok(())
     }
 
     fn exit(&mut self) {
         self.exit = true;
     }
 
-    fn increment_counter(&mut self) {
+    fn increment_counter(&mut self) -> Result<()> {
         self.counter += 1;
+        Ok(())
     }
 
-    fn decrement_counter(&mut self) {
+    fn decrement_counter(&mut self) -> Result<()> {
+        if self.counter == 0 {
+            bail!("counter cannot be negative")
+        }
         self.counter -= 1;
+        Ok(())
     }
 }
 
@@ -114,18 +122,26 @@ mod tests {
     #[test]
     fn test_app_increment_counter() {
         let mut app = App::default();
-        app.increment_counter();
+        app.increment_counter().unwrap();
         assert_eq!(app.counter, 1);
 
-        app.increment_counter();
+        app.increment_counter().unwrap();
         assert_eq!(app.counter, 2);
     }
 
     #[test]
     fn test_app_decrement_counter() {
         let mut app = App::default();
-        app.decrement_counter();
+        app.increment_counter().unwrap();
+        app.decrement_counter().unwrap();
         assert_eq!(app.counter, 0);
+    }
+
+    #[test]
+    #[should_panic = "counter cannot be negative"]
+    fn test_app_decrement_counter_panic() {
+        let mut app = App::default();
+        app.decrement_counter().unwrap();
     }
 
     #[test]
@@ -156,18 +172,37 @@ mod tests {
     }
 
     #[test]
-    fn handle_key_event() -> Result<()> {
+    fn handle_key_event() {
         let mut app = App::default();
-        app.handle_key_event(KeyCode::Right.into());
+        app.handle_key_event(KeyCode::Right.into()).unwrap();
         assert_eq!(app.counter, 1);
 
-        app.handle_key_event(KeyCode::Left.into());
+        app.handle_key_event(KeyCode::Left.into()).unwrap();
         assert_eq!(app.counter, 0);
 
         let mut app = App::default();
-        app.handle_key_event(KeyCode::Char('q').into());
+        app.handle_key_event(KeyCode::Char('q').into()).unwrap();
         assert_eq!(app.exit, true);
+    }
 
-        Ok(())
+    // panic and overflow conditions
+    #[test]
+    #[should_panic(expected = "counter cannot be negative")]
+    fn handle_key_event_panic() {
+        let mut app = App::default();
+        let _ = app.handle_key_event(KeyCode::Left.into()).unwrap();
+    }
+
+    #[test]
+    fn handle_key_event_overflow() {
+        let mut app = App::default();
+        assert!(app.handle_key_event(KeyCode::Right.into()).is_ok());
+        assert!(app.handle_key_event(KeyCode::Left.into()).is_ok());
+        assert_eq!(
+            app.handle_key_event(KeyCode::Left.into())
+                .unwrap_err()
+                .to_string(),
+            "counter cannot be negative"
+        );
     }
 }
